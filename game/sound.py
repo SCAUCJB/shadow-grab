@@ -1,53 +1,57 @@
 """
-程序化音效生成（无需音频文件，用 numpy 合成正弦波）。
-若 numpy 不可用则静默降级。
+音效生成（纯 Python stdlib，无 numpy 依赖）。
+用 array 模块生成 PCM 数据，直接传给 pygame.mixer.Sound。
 """
+import array
+import math
 import pygame
 
-_enabled = False
-try:
-    import numpy as np
-    pygame.mixer.pre_init(44100, -16, 1, 512)
-    _enabled = True
-except ImportError:
-    pass
-
 _RATE = 44100
-
-
-def _make(freq: float, duration: float, vol: float = 0.4, decay: bool = True):
-    if not _enabled:
-        return None
-    frames = int(_RATE * duration)
-    t = np.linspace(0, duration, frames, endpoint=False)
-    wave = np.sin(2 * np.pi * freq * t)
-    if decay:
-        env = np.linspace(1.0, 0.0, frames)
-        wave *= env
-    wave = (wave * vol * 32767).astype(np.int16)
-    sound = pygame.sndarray.make_sound(wave)
-    return sound
-
-
-# 预生成音效
 _sounds: dict = {}
+_enabled = False
+
+
+def _make(freq: float, duration: float, vol: float = 0.35,
+          decay: bool = True) -> pygame.mixer.Sound | None:
+    frames = int(_RATE * duration)
+    buf = array.array('h')
+    for i in range(frames):
+        t = i / _RATE
+        v = math.sin(2 * math.pi * freq * t)
+        if decay:
+            env = max(0.0, 1.0 - i / frames)
+        else:
+            # 快速起音，慢速衰减
+            attack = int(frames * 0.05)
+            env = min(1.0, i / max(1, attack))
+        buf.append(int(v * env * vol * 32767))
+    try:
+        return pygame.mixer.Sound(buffer=buf)
+    except Exception:
+        return None
 
 
 def init():
-    """在 pygame.init() 之后调用"""
-    if not _enabled:
+    global _enabled
+    try:
+        pygame.mixer.pre_init(_RATE, -16, 1, 1024)
+        _enabled = True
+    except Exception:
         return
-    _sounds['pickup']   = _make(880,  0.12, 0.3)
-    _sounds['deposit']  = _make(660,  0.25, 0.4)
-    _sounds['standoff'] = _make(330,  0.18, 0.35)
-    _sounds['win']      = _make(523,  0.5,  0.5, decay=False)
-    _sounds['smoke']    = _make(200,  0.2,  0.25)
-    _sounds['decoy']    = _make(440,  0.15, 0.25)
-    _sounds['barrier']  = _make(150,  0.18, 0.35)
-    _sounds['buff']     = _make(740,  0.22, 0.35)
+
+    _sounds['pickup']   = _make(880,  0.12, 0.28)
+    _sounds['deposit']  = _make(660,  0.22, 0.38)
+    _sounds['standoff'] = _make(330,  0.16, 0.32)
+    _sounds['win']      = _make(523,  0.45, 0.45, decay=False)
+    _sounds['smoke']    = _make(200,  0.18, 0.22)
+    _sounds['decoy']    = _make(440,  0.14, 0.22)
+    _sounds['barrier']  = _make(150,  0.16, 0.30)
+    _sounds['buff']     = _make(740,  0.20, 0.30)
 
 
 def play(name: str):
+    if not _enabled:
+        return
     s = _sounds.get(name)
     if s:
         s.play()
