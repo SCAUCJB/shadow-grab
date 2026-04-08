@@ -144,3 +144,38 @@ def draw_wall_tile(surface, rect: pygame.Rect, wall_col, hi_col, seed_val: int):
 def draw_floor_tile(surface, rect: pygame.Rect, floor_col, grid_col):
     pygame.draw.rect(surface, floor_col, rect)
     pygame.draw.rect(surface, grid_col, rect, 1)
+
+
+# ── 守卫 ─────────────────────────────────────────────────
+
+
+def draw_guard(surface, x: int, y: int, color, state: str, frame: int):
+    """
+    守卫精灵：菱形躯体 + 中央眼睛。
+    state='chase' 时眼睛变红，外圈发出红色光晕。
+    """
+    cx, cy = int(x), int(y)
+
+    # 巡逻时微弱脉冲
+    t = frame * 0.05
+    pulse = 1 + math.sin(t) * 0.15
+
+    # 视野圆（半透明）
+    vision_col = (255, 60, 60, 55) if state == 'chase' else (color[0], color[1], color[2], 30)
+    vs = pygame.Surface((24, 24), pygame.SRCALPHA)
+    pygame.draw.circle(vs, vision_col, (12, 12), 11)
+    surface.blit(vs, (cx - 12, cy - 12))
+
+    # 菱形身体
+    size = int(11 * pulse)
+    pts = [(cx, cy - size), (cx + size - 2, cy),
+           (cx, cy + size - 1), (cx - size + 2, cy)]
+    pygame.draw.polygon(surface, color, pts)
+    dark = tuple(max(0, c - 70) for c in color)
+    pygame.draw.polygon(surface, dark, pts, 2)
+
+    # 眼睛
+    eye_col = (255, 50, 50) if state == 'chase' else (230, 230, 230)
+    pygame.draw.circle(surface, eye_col, (cx, cy - 2), 3)
+    pupil = (80, 0, 0) if state == 'chase' else (30, 30, 40)
+    pygame.draw.circle(surface, pupil, (cx, cy - 2), 1)

@@ -14,7 +14,6 @@ AI 控制器：用 BFS 寻路 + 有限状态机决策。
 """
 from __future__ import annotations
 import math, random
-from collections import deque
 import pygame
 from game.config import TILE, COLS, ROWS, PLAYER_SPEED
 
@@ -31,36 +30,7 @@ STATE_SEEK      = 'seek'
 STATE_WANDER    = 'wander'
 
 
-def _bfs(grid, start_col, start_row, goal_col, goal_row) -> list[tuple[int,int]]:
-    """返回从 start 到 goal 的格子路径（不含起点），空列表表示不可达。"""
-    if (start_col, start_row) == (goal_col, goal_row):
-        return []
-    visited = {(start_col, start_row)}
-    parent  = {(start_col, start_row): None}
-    queue   = deque([(start_col, start_row)])
-    while queue:
-        cc, cr = queue.popleft()
-        for dc, dr in [(0,-1),(0,1),(-1,0),(1,0)]:
-            nc, nr = cc+dc, cr+dr
-            if (nc, nr) in visited:
-                continue
-            if not (0 <= nc < COLS and 0 <= nr < ROWS):
-                continue
-            if grid[nr][nc] == 1:
-                continue
-            visited.add((nc, nr))
-            parent[(nc, nr)] = (cc, cr)
-            if nc == goal_col and nr == goal_row:
-                # 回溯路径
-                path = []
-                cur = (nc, nr)
-                while cur is not None:
-                    path.append(cur)
-                    cur = parent[cur]
-                path.reverse()
-                return path[1:]   # 去掉起点
-            queue.append((nc, nr))
-    return []
+from game.pathfinding import bfs as _bfs
 
 
 class AIController:

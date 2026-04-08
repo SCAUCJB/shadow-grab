@@ -22,6 +22,8 @@ class Player:
         self.barrier_count = 0
         self.is_ai = False
         self.buffs: list = []   # list[BuffEffect]
+        self.lives = 3
+        self.invincible_timer = 0
 
         self.trail: list[list] = []
         self.moving = False
@@ -60,6 +62,9 @@ class Player:
         for b in self.buffs:
             b.update()
         self.buffs = [b for b in self.buffs if b.alive]
+
+        if self.invincible_timer > 0:
+            self.invincible_timer -= 1
 
         self.moving = bool(dx or dy)
         self._frame += 1
@@ -118,6 +123,11 @@ class Player:
         sprites.draw_player(surface, int(self.x), int(self.y),
                             self.color, self.carrying,
                             self.visible, self._frame)
+
+        if self.invincible_timer > 0 and (self.invincible_timer // 6) % 2 == 0:
+            s = pygame.Surface((28, 28), pygame.SRCALPHA)
+            pygame.draw.circle(s, (255, 255, 255, 120), (14, 14), 13, 3)
+            surface.blit(s, (int(self.x) - 14, int(self.y) - 14))
 
         # 增益指示条（头顶）
         for i, buff in enumerate(self.buffs):

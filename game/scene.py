@@ -4,7 +4,7 @@
 from __future__ import annotations
 import random
 import pygame
-from game.config import SCREEN_W, SCREEN_H, TILE, COLS, ROWS, RESOURCE_COUNT, RESOURCE_GOAL
+from game.config import SCREEN_W, SCREEN_H, TILE, COLS, ROWS, RESOURCE_COUNT, RESOURCE_GOAL, PLAYER_LIVES, GUARD_COUNT
 from game import map_gen, sound, bgm, theme, sprites, fonts
 from game.ai import AIController
 from game.player import Player
@@ -15,6 +15,7 @@ from game.item import SmokeItem, SmokeCloud
 from game.decoy import DecoyItem, Ghost
 from game.barrier import BarrierItem, PlacedBarrier, try_place
 from game.buff import BuffItem, magnet_radius
+from game.guard import Guard, GUARD_INVINCIBLE_DUR
 
 SMOKE_ITEM_COUNT   = 3
 DECOY_ITEM_COUNT   = 2
@@ -84,6 +85,16 @@ class GameScene:
         self.placed_barriers: list[PlacedBarrier] = []
         self.standoff = StandoffManager()
         self.winner   = None
+
+        # 守卫：排除双方出生房间
+        spawn_rooms = [r for r in rooms if r not in (r1, r2)]
+        rng.shuffle(spawn_rooms)
+        self.guards: list[Guard] = [
+            Guard(room, i, self.grid)
+            for i, room in enumerate(spawn_rooms[:GUARD_COUNT])
+        ]
+        self.p1.lives = PLAYER_LIVES
+        self.p2.lives = PLAYER_LIVES
 
         # AI
         if self.ai_difficulty:
@@ -239,6 +250,15 @@ class GameScene:
         for g in self.ghosts: g.update()
         self.ghosts = [g for g in self.ghosts if g.alive]
 
+        # 守卫更新
+        for guard in self.guards:
+            caught, entered_chase = guard.update(
+                [self.p1, self.p2], self.grid, self.placed_barriers)
+            if entered_chase:
+                sound.play('guard_alert')
+            for player in caught:
+                self._on_guard_catch(player)
+
         standoff_res = self.standoff.resource if self.standoff.active else None
         winner_pid, won_res = self.standoff.update(self.p1, self.p2, self.resources)
         if winner_pid and won_res:
@@ -267,6 +287,23 @@ class GameScene:
 
         return self.winner
 
+    def _on_guard_catch(self, player):
+        """守卫捕捉玩家：扣血、掉落碎片、传送回基地、短暂无敌。"""
+        sound.play('guard_catch')
+        if player.carrying:
+            player.carrying = False
+            tc = int(player.x // TILE)
+            tr = int(player.y // TILE)
+            self.resources.append(Resource(tc, tr, self.theme['resource']))
+        player.lives -= 1
+        base = self.base1 if player.pid == 1 else self.base2
+        player.x = float(base.x)
+        player.y = float(base.y)
+        player.invincible_timer = GUARD_INVINCIBLE_DUR
+        if player.lives <= 0:
+            self.winner = 2 if player.pid == 1 else 1
+            sound.play('win')
+
     # ── 渲染 ─────────────────────────────────────────────
     def draw(self, surface):
         surface.blit(self._map_surf, (0, 0))
@@ -281,6 +318,8 @@ class GameScene:
         for sc in self.smoke_clouds: sc.draw(surface)
         for g in self.ghosts: g.draw(surface)
         self.standoff.draw(surface)
+        for guard in self.guards:
+            guard.draw(surface)
         self.p1.draw(surface)
         self.p2.draw(surface)
         self._draw_hud(surface)
@@ -291,7 +330,8 @@ class GameScene:
 
         from game.buff import BUFF_CONFIGS
         def inv(p):
-            parts = [f"P{p.pid}  {p.score}/{RESOURCE_GOAL}"]
+            lives_str = "♥" * max(0, p.lives) + "♡" * max(0, PLAYER_LIVES - p.lives)
+            parts = [f"P{p.pid}  {p.score}/{RESOURCE_GOAL}  {lives_str}"]
             if p.carrying:      parts.append("【碎片】")
             if p.smoke_count:   parts.append(f"烟×{p.smoke_count}")
             if p.decoy_count:   parts.append(f"诱×{p.decoy_count}")

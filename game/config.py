@@ -37,3 +37,9 @@ RESOURCE_GOAL   = 4         # 收集几个碎片胜利
 
 # 基地
 BASE_RADIUS = 20
+
+# 生命值
+PLAYER_LIVES = 3
+
+# 守卫
+GUARD_COUNT = 2

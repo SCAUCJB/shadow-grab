@@ -2,6 +2,7 @@
 音效生成（纯 Python stdlib，无 numpy 依赖）。
 用 array 模块生成 PCM 数据，直接传给 pygame.mixer.Sound。
 """
+from __future__ import annotations
 import array
 import math
 import pygame
@@ -46,7 +47,9 @@ def init():
     _sounds['smoke']    = _make(200,  0.18, 0.22)
     _sounds['decoy']    = _make(440,  0.14, 0.22)
     _sounds['barrier']  = _make(150,  0.16, 0.30)
-    _sounds['buff']     = _make(740,  0.20, 0.30)
+    _sounds['buff']        = _make(740,  0.20, 0.30)
+    _sounds['guard_alert'] = _make(880,  0.08, 0.30)
+    _sounds['guard_catch'] = _make(220,  0.35, 0.45)
 
 
 def play(name: str):

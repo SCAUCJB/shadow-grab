@@ -2,6 +2,7 @@
 程序化 BGM：用 stdlib array + math 合成五声音阶循环旋律。
 无 numpy / threading 依赖，兼容 pygbag WASM 环境。
 """
+from __future__ import annotations
 import array
 import math
 import pygame
